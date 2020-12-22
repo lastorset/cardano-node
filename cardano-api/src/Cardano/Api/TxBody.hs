@@ -75,6 +75,14 @@ module Cardano.Api.TxBody (
     certificatesSupportedInEra,
     updateProposalSupportedInEra,
 
+    -- * Internal conversion functions
+    toShelleyTxId,
+    toShelleyTxIn,
+    toShelleyTxOut,
+    fromShelleyTxId,
+    fromShelleyTxIn,
+    fromShelleyTxOut,
+
     -- * Data family instances
     AsType(AsTxId, AsTxBody, AsByronTxBody, AsShelleyTxBody),
   ) where
@@ -173,6 +181,11 @@ toShelleyTxId :: Ledger.Crypto ledgerera ~ StandardCrypto
 toShelleyTxId (TxId h) =
     Shelley.TxId (Crypto.castHash h)
 
+fromShelleyTxId :: Ledger.Crypto ledgerera ~ StandardCrypto
+                => Shelley.TxId ledgerera -> TxId
+fromShelleyTxId (Shelley.TxId h) =
+    TxId (Crypto.castHash h)
+
 -- | Calculate the transaction identifier for a 'TxBody'.
 --
 getTxId :: TxBody era -> TxId
@@ -208,9 +221,7 @@ getTxId (ShelleyTxBody era tx _) =
 --
 
 data TxIn = TxIn TxId TxIx
-
-deriving instance Eq TxIn
-deriving instance Show TxIn
+  deriving (Eq, Ord, Show)
 
 newtype TxIx = TxIx Word
   deriving stock (Eq, Ord, Show)
@@ -226,6 +237,12 @@ toShelleyTxIn  :: (Ledger.Era ledgerera,
                => TxIn -> Shelley.TxIn ledgerera
 toShelleyTxIn (TxIn txid (TxIx txix)) =
     Shelley.TxIn (toShelleyTxId txid) (fromIntegral txix)
+
+fromShelleyTxIn :: (Ledger.Era ledgerera,
+                    Ledger.Crypto ledgerera ~ StandardCrypto)
+                => Shelley.TxIn ledgerera -> TxIn
+fromShelleyTxIn (Shelley.TxIn txid txix) =
+    TxIn (fromShelleyTxId txid) (TxIx (fromIntegral txix))
 
 
 -- ----------------------------------------------------------------------------
@@ -265,6 +282,25 @@ toShelleyTxOut (TxOut addr (TxOutAdaOnly AdaOnlyInAllegraEra value)) =
 
 toShelleyTxOut (TxOut addr (TxOutValue MultiAssetInMaryEra value)) =
     Shelley.TxOut (toShelleyAddr addr) (toMaryValue value)
+
+
+fromShelleyTxOut :: forall era ledgerera.
+                   (ShelleyLedgerEra era ~ ledgerera,
+                    IsShelleyBasedEra era, Ledger.ShelleyBased ledgerera)
+                 => Shelley.TxOut ledgerera -> TxOut era
+fromShelleyTxOut (Shelley.TxOut addr value) =
+    case shelleyBasedEra :: ShelleyBasedEra era of
+      ShelleyBasedEraShelley -> TxOut (fromShelleyAddr addr)
+                                      (TxOutAdaOnly AdaOnlyInShelleyEra
+                                                    (fromShelleyLovelace value))
+
+      ShelleyBasedEraAllegra -> TxOut (fromShelleyAddr addr)
+                                      (TxOutAdaOnly AdaOnlyInAllegraEra
+                                                    (fromShelleyLovelace value))
+
+      ShelleyBasedEraMary    -> TxOut (fromShelleyAddr addr)
+                                      (TxOutValue MultiAssetInMaryEra
+                                                  (fromMaryValue value))
 
 
 -- ----------------------------------------------------------------------------
@@ -1262,15 +1298,8 @@ genesisUTxOPseudoTxIn nw (GenesisUTxOKeyHash kh) =
     --TODO: should handle Byron UTxO case too.
     fromShelleyTxIn (Shelley.initialFundsPseudoTxIn addr)
   where
+    addr :: Shelley.Addr StandardShelley
     addr = Shelley.Addr
              (toShelleyNetwork nw)
              (Shelley.KeyHashObj kh)
              Shelley.StakeRefNull
-
-    fromShelleyTxIn  :: Shelley.TxIn StandardShelley -> TxIn
-    fromShelleyTxIn (Shelley.TxIn txid txix) =
-        TxIn (fromShelleyTxId txid) (TxIx (fromIntegral txix))
-
-    fromShelleyTxId :: Shelley.TxId StandardShelley -> TxId
-    fromShelleyTxId (Shelley.TxId h) =
-        TxId (Crypto.castHash h)

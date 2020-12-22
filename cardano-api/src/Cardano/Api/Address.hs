@@ -353,7 +353,7 @@ instance IsCardanoEra era => SerialiseAsRawBytes (AddressInEra era) where
       serialiseToRawBytes addr
 
     deserialiseFromRawBytes _ bs = do
-      anyAddressInEra =<< deserialiseFromRawBytes AsAddressAny bs
+      anyAddressInEra cardanoEra =<< deserialiseFromRawBytes AsAddressAny bs
 
 instance IsCardanoEra era => SerialiseAddress (AddressInEra era) where
     serialiseAddress (AddressInEra ByronAddressInAnyEra addr) =
@@ -363,7 +363,7 @@ instance IsCardanoEra era => SerialiseAddress (AddressInEra era) where
       serialiseAddress addr
 
     deserialiseAddress _ t =
-      anyAddressInEra =<< deserialiseAddress AsAddressAny t
+      anyAddressInEra cardanoEra =<< deserialiseAddress AsAddressAny t
 
 
 byronAddressInEra :: Address ByronAddr -> AddressInEra era
@@ -381,16 +381,16 @@ anyAddressInShelleyBasedEra (AddressByron   addr) = byronAddressInEra addr
 anyAddressInShelleyBasedEra (AddressShelley addr) = shelleyAddressInEra addr
 
 
-anyAddressInEra :: IsCardanoEra era
-                => AddressAny
+anyAddressInEra :: CardanoEra era
+                -> AddressAny
                 -> Maybe (AddressInEra era)
-anyAddressInEra (AddressByron addr) =
+anyAddressInEra _ (AddressByron addr) =
     Just (AddressInEra ByronAddressInAnyEra addr)
 
-anyAddressInEra (AddressShelley addr) =
-    case cardanoEraStyle cardanoEra of
-      LegacyByronEra      -> Nothing
-      ShelleyBasedEra era -> Just (AddressInEra (ShelleyAddressInEra era) addr)
+anyAddressInEra era (AddressShelley addr) =
+    case cardanoEraStyle era of
+      LegacyByronEra       -> Nothing
+      ShelleyBasedEra era' -> Just (AddressInEra (ShelleyAddressInEra era') addr)
 
 toAddressAny :: Address addr -> AddressAny
 toAddressAny a@ShelleyAddress{} = AddressShelley a
