@@ -61,7 +61,7 @@ Many commands relay on the environment variable CARDANO_NODE_SOCKET_PATH:
 
 Check that the node is syncing by fetching the current tip. When syncing slotNo should be increasing.
 
-        cardano-cli shelley query tip --mainnet
+        cardano-cli query tip --mainnet
 
         {
         "blockNo": 36322,
